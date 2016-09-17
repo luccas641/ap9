@@ -1,0 +1,25 @@
+{
+  "name": "ap9",
+  "main": "./lib/main",
+  "version": "0.0.0",
+  "description": "ICMC AP9 Processor Tools",
+  "keywords": [
+  ],
+  "repository": "https://github.com/atom/test",
+  "license": "MIT",
+  "engines": {
+    "atom": ">=1.0.0 <2.0.0"
+  },
+  "consumedServices": {
+    "status-bar": {
+      "versions": {
+        "^1.0.0": "consumeStatusBar"
+      }
+    }
+  },
+  "dependencies": {
+    "atom-space-pen-views": "^2.1.1",
+    "fs-plus": "^2.0.0",
+    "underscore-plus": "^1.0.0"
+  }
+}

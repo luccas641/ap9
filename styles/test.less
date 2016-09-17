@@ -1,0 +1,23 @@
+// The ui-variables file is provided by base themes provided by Atom.
+//
+// See https://github.com/atom/atom-dark-ui/blob/master/styles/ui-variables.less
+// for a full listing of what's available.
+@import "ui-variables";
+
+.simulator-view {
+  display: flex;
+  flex-direction: column;
+  background-color: @pane-item-background-color;
+
+  .simulator-container {
+    flex: 1 1 0;
+    display: flex;
+    overflow: auto;
+
+    canvas {
+      flex: none;
+      margin: auto;
+      background: black;
+    }
+  }
+}
