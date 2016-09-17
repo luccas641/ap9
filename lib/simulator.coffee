@@ -41,16 +41,14 @@ class Simulator
 
   switchMode: ->
     if not @automatic
-      @setMode true
-      @process()
       @automatic=true
+      @process()
       #document.getElementById("status").innerHTML="automatic"
       #document.getElementById("buttonautomatic").innerHTML="Manual"
     else
       @automatic=false
       #document.getElementById("status").innerHTML="Manual"
       #document.getElementById("clock").innerHTML=""
-      @setMode false
       @stop()
       #document.getElementById("buttonautomatic").innerHTML="automatic"
     undefined
@@ -62,18 +60,25 @@ class Simulator
 
   process: ->
     if @automatic
-      @automaticProcess
+      @automaticProcess()
     else
       @run # executa soh uma vez
       #@updateAll()
+    undefined
 
   automaticProcess: ->
+    console.log "start automatic"
     @start = new Date()
     @clock_count=1000
-    @interval=setInterval(@multiplicadorClock, 1)
-    clock_interval=setInterval(@corrigeClock, 1000)
+    @interval=setInterval( =>
+      @multiplicadorClock
+    , 1)
+    @clock_interval=setInterval(=>
+      console.log "1seg"
+      @corrigeClock
+    , 1000)
 
-  @corrigeClock: ->
+  corrigeClock: ->
     atual=clock_count
     @clock_t=clock_t*clock/atual
     @clock_t=10000 if(clock_t>10000)
@@ -87,12 +92,13 @@ class Simulator
     #  document.getElementById("clock").innerHTML="Clock: "+parseInt(atual)+" hz"
     @clock_count=0
 
-  @multiplicadorClock: ->
+  multiplicadorClock: ->
 
     @run for i in [0..clock_t]
     @clock_count+=clock_t
 
   stop: ->
+    console.log "stop"
     window.clearInterval(@interval)
     window.clearInterval(@clock_interval)
     #@updateAll()
@@ -116,9 +122,6 @@ class Simulator
     @fr[n] = value if value == 0 or value == 1
     #@reg.update@fr()
     undefined
-
-  setMode: (value) ->
-    @automatic = value
 
   run: ->
     console.log "run"
