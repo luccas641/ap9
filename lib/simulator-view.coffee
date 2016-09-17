@@ -9,6 +9,7 @@ class SimulatorView  extends View
         @canvas class: "canvas", width: "640px", height: "480px"
 
   initialize: (@simulator) ->
+    console.log @simulator
     @emitter = new Emitter
 
   attached: ->
@@ -22,12 +23,13 @@ class SimulatorView  extends View
 
   next: ->
     console.log "next"
+    @simulator.next()
 
   toggle: ->
-    console.log "toggle"
+    @simulator.switchMode()
 
   reset: ->
-    console.log "reset"
+    @simulator.reset()
 
   # Retrieves this view's pane.
   #
