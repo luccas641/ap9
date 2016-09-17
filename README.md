@@ -2,14 +2,20 @@
 
 
 Requirements:
+
 Node >3.5
+
 Atom >1.0
 
 
 Development:
+
 git clone https://github.com/luccas641/ap9.git
+
 cd ap9
+
 apm link --dev
+
 atom --dev
 
 
