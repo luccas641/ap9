@@ -29,3 +29,4 @@ class Mnemonics
   @HALT = 15
   @SETC = 8
   @BREAKP = 14
+  @EI = 55

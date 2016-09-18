@@ -29,12 +29,15 @@ class Simulator
     @pc = 0
     @ir = 0
     @sp = 0x7FFC
-
+    @auxpc = 0
+    @pc2 = 0
 
     @setPC 0
     @setIR 0
     @setSP 0x7FFC
     @fr = [0, 0, 0, 0, 0 , 0, 0, 0, 0, 0, 0, 0, 0 , 0, 0, 0]
+    @c0 = [0, 0, 0, 0, 0 , 0, 0, 0, 0, 0, 0, 0, 0 , 0, 0, 0]
+    @irq = [0, 0, 0, 0, 0 , 0, 0, 0, 0, 0, 0, 0, 0 , 0, 0, 0]
     @reg = [0, 0, 0, 0, 0 , 0, 0, 0]
 
     #----Clock----
@@ -44,6 +47,9 @@ class Simulator
     @clock_interval
     console.log "reset"
     undefined
+
+  setView: (v) ->
+    @view = v
 
   switchMode: ->
     if not @automatic
@@ -61,9 +67,8 @@ class Simulator
 
   next: =>
     console.log "simulator next"
-    @process
+    @process()
     undefined
-
 
   pega_pedaco: (ir, a, b) ->
     ((ir &  ( ((1 << (a+1)) - 1) )  ) >> b)
@@ -73,7 +78,7 @@ class Simulator
       @automaticProcess()
     else
       @run() # executa soh uma vez
-      #@updateAll()
+      @updateAll()
     undefined
 
   automaticProcess: ->
@@ -88,28 +93,88 @@ class Simulator
     , 1000)
 
   corrigeClock: ->
-    console.log this
+    atual = @clock_count
     @clock_t=@clock_t*@clock/@clock_count
     @clock_t=10000 if @clock_t>10000
     @clock_t=1 if @clock_t<1
-    console.log "corrige", @clock_t
-    #if atual>1000000
-    #  document.getElementById("clock").innerHTML="Clock: "+parseInt(atual/1000000) + " mhz"
-    #else if(atual>1000)
-    #  document.getElementById("clock").innerHTML="Clock: "+parseInt(atual/1000) + " khz"
-    #else
-    #  document.getElementById("clock").innerHTML="Clock: "+parseInt(atual)+" hz"
+    if atual>1000000
+      console.log "Clock: "+parseInt(atual/1000000) + " mhz"
+    else if(atual>1000)
+      console.log "Clock: "+parseInt(atual/1000) + " khz"
+    else
+      console.log "Clock: "+parseInt(atual)+" hz"
     @clock_count=0
 
   multiplicadorClock: ->
-    @run() for i in [0..@clock_t]
+    for i in [0..@clock_t]
+      @run() if @automatic
     @clock_count+=@clock_t
 
   stop: ->
     console.log "stop"
     window.clearInterval(@interval)
     window.clearInterval(@clock_interval)
-    #@updateAll()
+    @updateAll()
+
+  setRegisters: ->
+    @reg[0] = @view.r0.getModel().getText()
+    @reg[1] = @view.r0.getModel().getText()
+    @reg[2] = @view.r0.getModel().getText()
+    @reg[3] = @view.r0.getModel().getText()
+    @reg[4] = @view.r0.getModel().getText()
+    @reg[5] = @view.r0.getModel().getText()
+    @reg[6] = @view.r0.getModel().getText()
+    @reg[7] = @view.r0.getModel().getText()
+
+  updateAll: ->
+    #Ins.updateInstrucoes(auxpc, pc2, 35);
+    @updateRegisters();
+
+  updateRegisters: ->
+    @view.r0.getModel().setText @reg[0].toString()
+    @view.r0.getModel().setText @reg[0].toString 16 if @hex
+    @view.r1.getModel().setText @reg[1].toString()
+    @view.r1.getModel().setText @reg[1].toString 16 if @hex
+    @view.r2.getModel().setText @reg[2].toString()
+    @view.r2.getModel().setText @reg[2].toString 16 if @hex
+    @view.r3.getModel().setText @reg[3].toString()
+    @view.r3.getModel().setText @reg[3].toString 16 if @hex
+    @view.r4.getModel().setText @reg[4].toString()
+    @view.r4.getModel().setText @reg[4].toString 16 if @hex
+    @view.r5.getModel().setText @reg[5].toString()
+    @view.r5.getModel().setText @reg[5].toString 16 if @hex
+    @view.r6.getModel().setText @reg[6].toString()
+    @view.r6.getModel().setText @reg[6].toString 16 if @hex
+    @view.r7.getModel().setText @reg[7].toString()
+    @view.r7.getModel().setText @reg[7].toString 16 if @hex
+
+    @view.fr.getModel().setText @fr.toString().replace(/,/g, "")
+    @view.fr.getModel().setText @fr.toString(16).replace(/,/g, "") if @hex
+
+    @view.pc.getModel().setText @pc.toString()
+    @view.pc.getModel().setText @pc.toString 16 if @hex
+
+    @view.ir.getModel().setText @ir.toString()
+    @view.ir.getModel().setText @ir.toString 16 if @hex
+
+    @view.c0.getModel().setText @c0.toString().replace(/,/g, "")
+    @view.c0.getModel().setText @c0.toString(16).replace(/,/g, "") if @hex
+
+    @view.irq.getModel().setText @irq.toString().replace(/,/g, "")
+    @view.irq.getModel().setText @irq.toString(16).replace(/,/g, "") if @hex
+
+    @view.sp.getModel().setText @sp.toString()
+    @view.sp.getModel().setText @sp.toString 16 if @hex
+
+  getKey: ->
+    @key = 255
+    if(@key>=65 && @key <=90)
+      @key+=32
+    return @key
+
+  setKey: (k)->
+    console.log k
+    @key = k
 
   setPC: (value) =>
     @pc = value%0x10000 if value >=0
@@ -132,6 +197,69 @@ class Simulator
     undefined
 
   run: ->
+    console.log "run"
+    if(opcode != Mnemonics.RTS)
+      irq = false;
+      #Ciclo de interrupcao
+      for i in [0..6]
+        if(@irq[i])
+          irq = true;
+          break;
+    if @irq and not @c0[1] and @c0[0]
+      @c0[1] = 1;
+      @mem[@sp] = @pc;
+      @sp--;
+
+      #Executa interrupcao
+      if @irq[0]
+          pc = @mem[0x7ff0];
+          @irq[0] = 0;
+      else if(@irq[1])
+          pc = @mem[0x7ff1];
+          @irq[1] = 0;
+      else if(@irq[2])
+          pc = @mem[0x7ff2];
+          @irq[2] = 0;
+      else if(@irq[3])
+          pc = @mem[0x7ff3];
+          @irq[3] = 0;
+      else if(@irq[4])
+          pc = @mem[0x7ff4];
+          @irq[4] = 0;
+      else if(@irq[5])
+          pc = @mem[0x7ff5];
+          @irq[5] = 0;
+      else if(@irq[6])
+          pc = @mem[0x7ff6];
+          @irq[6] = 0;
+      else if(@irq[7])
+          pc = @mem[0x7ff7];
+          @irq[7] = 0;
+      else if(@irq[8])
+          pc = @mem[0x7ff8];
+          @irq[8] = 0;
+      else if(@irq[9])
+          pc = @mem[0x7ff9];
+          @irq[9] = 0;
+      else if(@irq[10])
+          pc = @mem[0x7ffa];
+          @irq[10] = 0;
+      else if(@irq[11])
+          pc = @mem[0x7ffb];
+          @irq[11] = 0;
+      else if(@irq[12])
+          pc = @mem[0x7ffc];
+          @irq[12] = 0;
+      else if(@irq[13])
+          pc = @mem[0x7ffd];
+          @irq[13] = 0;
+      else if(@irq[14])
+          pc = @mem[0x7ffe];
+          @irq[14] = 0;
+      else if(@irq[15])
+          pc = @mem[0x7fff];
+          @irq[15] = 0;
+
     # ----- Ciclo de Busca: --------
     ir = @mem[@pc]
 
@@ -152,8 +280,47 @@ class Simulator
 
     # when .das instrucoes
     opcode = @pega_pedaco(ir,15,10)
-
+    console.log opcode, rx, ry, rz, @pc
     switch opcode
+      when Mnemonics.INCHAR
+        if @reg[ry] == 0x900 #keyboard
+          key = getKey();#getch();
+          @reg[rx] = pega_pedaco(key,7,0);
+        else if @reg[ry] >= 0x990 && @reg[ry] <= 0x994 #PIT
+        else
+          console.log "Erro: Voce tentou usar uma porta nao implementada ", @reg[ry]
+
+      when Mnemonics.OUTCHAR
+        if(@reg[ry] == 0) #video ADDR BG
+          #vid.setAddrBG(@reg[rx]);
+        else if(@reg[ry] == 1) #video BG
+          #vid.addBG(@reg[rx]);
+        else if(@reg[ry] == 2) #video ADDR OAM
+          #vid.setAddrOAM(@reg[rx]);
+        else if(@reg[ry] == 3) #Vdeo OAM
+          #vid.addObject(@reg[rx]);
+        else if(@reg[ry] == 4) #video ADDR SPRITE
+          #vid.setAddrSprite(@reg[rx]);
+        else if(@reg[ry] == 5) #video SPRITE
+          #vid.addSprite(@reg[rx]);
+        else if(@reg[ry] == 6) #video ADDR PALETTE
+          #vid.setAddrPalette(@reg[rx]);
+        else if(@reg[ry] == 7) #video PALETTE
+          #vid.addPalette(@reg[rx]);
+        else if(@reg[ry] >= 0x901 && @reg[ry] <= 0x902) #com1
+
+        else if(@reg[ry] >= 0x990 && @reg[ry] <= 0x994)#PIT
+
+        else
+          console.log "Erro: Voce tentou usar uma porta não implementada ", @reg[ry]
+
+      when Mnemonics.EI
+        switch pega_pedaco(ir,0,0)
+          when 0
+            @c0[0] = 0
+          else
+            @c0[0] = 1
+
       when Mnemonics.MOV
         switch @pega_pedaco(ir,1,0)
           when 0
@@ -365,10 +532,10 @@ class Simulator
         @fr[4] = @pega_pedaco(ir,9,9)
 
       when Mnemonics.HALT
-        @switchMode()
+        @automatic = false
 
       when Mnemonics.BREAKP
-        @switchMode()
+        @automatic = false
 
     @reg[rx]=@reg[rx]&0xffff
 
@@ -405,11 +572,11 @@ class Simulator
         @pc2++
 
       when Mnemonics.BREAKP
-        undefined
+        @automatic = false
         #@notifyProcessamento()
 
       when Mnemonics.HALT
-        undefined
+        @automatic = false
         #@notifyProcessamento()
 
   undefined
