@@ -24,8 +24,8 @@ class SimulatorView  extends View
         @label "R7"
         @subview "r7", new TextEditorView(mini: true, attributes: {id: "r7", outlet: "r7", type: "string", class: "inline-block reg"})
         @div class: 'inline-block btn-group', =>
-          @button class: 'inline-block btn', type: "button", id: "buttonNext",  "Próximo"
-          @button class: 'inline-block btn', type: "button", id: "buttonAutomatico",  "Automatico"
+          @button class: 'inline-block btn', outlet: 'nextBtn', type: "button", id: "buttonNext",  "Próximo"
+          @button class: 'inline-block btn', outlet: 'toggleBtn', type: "button", id: "buttonAutomatico",  "Automatico"
       @div class: "simulator-panel block", =>
         @label id: "labelPC", "PC"
         @subview "pc", new TextEditorView(mini: true, attributes: {id: "pc", outlet: "pc", type: "string", class: "inline-block reg"})
@@ -56,6 +56,13 @@ class SimulatorView  extends View
 
     @disposables.add ".reg", 'keydown', (evt) =>
       @simulator.setRegisters();
+
+    @disposables.add @nextBtn, 'click', =>
+      @next()
+
+    @disposables.add @toggleBtn, 'click', =>
+      @toggle()
+
     #@disposables.add @simulator.onDidChange => @updateImageURI()
     @disposables.add atom.commands.add @element,
       'simulator-view:toggle': => @toggle()
@@ -67,6 +74,10 @@ class SimulatorView  extends View
     @simulator.next()
 
   toggle: ->
+    if @toggleBtn.html() == "Manual"
+      @toggleBtn.html("Automatico")
+    else
+      @toggleBtn.html("Manual")
     @simulator.switchMode()
 
   reset: ->
