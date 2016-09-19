@@ -59,9 +59,11 @@ class Simulator
       console.log  "automatico"
       @automatic=true
       @process()
+      @emitter.emit 'status-change', "Manual"
     else
       console.log  "para automatico"
       @stop()
+      @emitter.emit 'status-change', "Automatico"
     undefined
 
   next: =>
@@ -95,11 +97,14 @@ class Simulator
     @clock_t=10000 if @clock_t>10000
     @clock_t=1 if @clock_t<1
     if atual>1000000
-      console.log "Clock: "+parseInt(atual/1000000) + " mhz"
+      atual = parseInt(atual/1000000) + " mhz"
     else if(atual>1000)
-      console.log "Clock: "+parseInt(atual/1000) + " khz"
+      atual = parseInt(atual/1000) + " khz"
     else
-      console.log "Clock: "+parseInt(atual)+" hz"
+      atual = parseInt(atual)+" hz"
+
+    @emitter.emit 'clock-change', atual
+    console.log atual
     @clock_count=0
 
   multiplicadorClock: ->
@@ -624,6 +629,7 @@ class Simulator
   #
   # Returns a {Boolean}.
   isEqual: (other) ->
+    console.log('compara')
     other instanceof Simulator and @getURI() is other.getURI()
 
   # Essential: Invoke the given callback when the editor is destroyed.

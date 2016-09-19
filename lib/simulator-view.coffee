@@ -63,25 +63,31 @@ class SimulatorView  extends View
     @disposables.add @toggleBtn, 'click', =>
       @toggle()
 
+    @onStatusChange (status) =>
+      @toggleBtn.html(status)
+
     #@disposables.add @simulator.onDidChange => @updateImageURI()
     @disposables.add atom.commands.add @element,
       'simulator-view:toggle': => @toggle()
       'simulator-view:reset': => @reset()
       'simulator-view:next': => @next()
 
+
   next: ->
     console.log "next"
     @simulator.next()
 
   toggle: ->
-    if @toggleBtn.html() == "Manual"
-      @toggleBtn.html("Automatico")
-    else
-      @toggleBtn.html("Manual")
     @simulator.switchMode()
 
   reset: ->
     @simulator.reset()
+
+  onStatusChange: (callback)->
+    @emitter.on 'status-change', callback
+
+  onDidLoad: (callback) ->
+    @emitter.on 'did-load', callback
 
   # Retrieves this view's pane.
   #
