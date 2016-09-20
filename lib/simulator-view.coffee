@@ -41,10 +41,14 @@ class SimulatorView  extends View
         @subview "irq", new TextEditorView(mini: true, attributes: {id: "irq", outlet: "irq", type: "string", class: "inline-block reg big"})
         @input class: 'inline-block range',  type: "range", name: "clockSel", id: "clockSel" ,min: "1", max: "1000000", value: "100000"
       @div class: "simulator-container", =>
-        @canvas class: "canvas", width: "640px", height: "480px", focusable="True"
+        @div class: "canvas-container", =>
+          @canvas class: "canvas", width: "640px", height: "480px", focusable="True", outlet: "canvasBack"
+          @canvas class: "canvas", width: "640px", height: "480px", focusable="True", outlet: "canvasFront"
+        @div class: "simulator-code", =>
+          @p "none yet"
 
   initialize: (@simulator) ->
-    @emitter = new Emitter
+    @emitter = @simulator.emitter
 
   attached: ->
     @disposables = new SubAtom
@@ -64,6 +68,7 @@ class SimulatorView  extends View
       @toggle()
 
     @onStatusChange (status) =>
+      console.log('onchange')
       @toggleBtn.html(status)
 
     #@disposables.add @simulator.onDidChange => @updateImageURI()
@@ -72,6 +77,10 @@ class SimulatorView  extends View
       'simulator-view:reset': => @reset()
       'simulator-view:next': => @next()
 
+    @ctxBg=@canvasBack[0].getContext("2d")
+    @ctxFr=@canvasFront[0].getContext("2d")
+
+    @canvasData = [@ctxBg.getImageData(0, 0, 640, 480), @ctxFr.getImageData(0, 0, 640, 480)]
 
   next: ->
     console.log "next"
@@ -88,6 +97,60 @@ class SimulatorView  extends View
 
   onDidLoad: (callback) ->
     @emitter.on 'did-load', callback
+
+  updateVew: () ->
+    bg = @simulator.getBG()
+    @drawOnScreen 0, bg[i].c, bg[i].p, 8*(i%40), 8*(i/40), bg[i].v, bg[i].h for i in [0..1200]
+    @updateCanvas(0)
+
+    oam = @simulator.getOAM()
+    @drawOnScreen 1, oam[i].c, oam[i].p, oam[i].x, oam[i].y, oam[i].v, oam[i].h for i in [0..128]
+    @updateCanvas(1)
+  drawOnScreen: (canvas, sprite, palette, x, y, v, h) ->
+     sprites = @simulator.getSprites();
+     for i in [0..8]
+        for j in [0..8]
+          color = ((sprites[(sprite<<3)+i])>>j&1) + ((sprites[(sprite<<3)+i]>>(j+8))&1)*2
+          indexX = (8-j+x)*2
+          indexY = (i+y)*2
+          if v && !h
+            indexX = (j+x)*2
+          else if h && !v
+            indexY = (8-i+y)*2
+
+          else if v && h
+            indexX = (j+x)*2
+            indexY = (8-i+y)*2
+
+          @drawPixel canvas, indexX, indexY, palette, color
+
+  # -------- Video --------
+  drawPixel: (canvas, x, y, palette, color) ->
+
+    if canvas==1 and color == 0
+      A = 0
+    else
+      p = @simulator.getPalette()
+      c = p[palette << 2 | color];
+      B = c.blue/32.0
+      G = c.green/32.0
+      R = c.red/32.0
+      A = 255
+
+    for i in [x*2..x*2+2]
+      for j in [y*2..y*2+2]
+        index = (i + j * 640) * 4;
+
+        @canvasData[canvas].data[index + 0] = R;
+        @canvasData[canvas].data[index + 1] = G;
+        @canvasData[canvas].data[index + 2] = B;
+        @canvasData[canvas].data[index + 3] = A;
+
+  updateCanvas: (canvas) ->
+    if(canvas)
+      @ctxFr.putImageData(@canvasData[canvas], 0, 0);
+    else
+      @ctxBg.putImageData(@canvasData[canvas], 0, 0);
 
   # Retrieves this view's pane.
   #

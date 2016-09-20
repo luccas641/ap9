@@ -35,7 +35,6 @@ class SimulatorStatusView extends View
 
   updateStatusBar: ->
     editor = atom.workspace.getActivePaneItem()
-    console.log editor
     if editor instanceof Simulator
       @simulatorClock.show()
       @simulatorStatus.show()

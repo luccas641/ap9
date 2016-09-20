@@ -2,6 +2,8 @@ path = require 'path'
 fs = require 'fs-plus'
 Mnemonics = require './mnemonics'
 PIT = require './pit'
+Video = require './video
+'
 {Emitter, File, CompositeDisposable} = require 'atom'
 
 # Model for an Simulator view
@@ -16,16 +18,18 @@ class Simulator
       console.warn "Could not deserialize simulator for path '#{filePath}' because that file no longer exists"
 
   constructor: (filePath) ->
+    @emitter = new Emitter
+    @pit = new PIT
+    @vid = new Video
     @file = new File(filePath)
     @uri = "file:#" + encodeURI(filePath.replace(/\\/g, '/')).replace(/#/g, '%23').replace(/\?/g, '%3F')
     @subscriptions = new CompositeDisposable()
-    @emitter = new Emitter
-    @pit = new PIT
     @automatic = false
     @reset()
 
   reset: ->
     @pit.clear()
+    @vid.reset()
     @mem = []
     @file.read().then (content) =>
       @loadMif content
@@ -89,6 +93,7 @@ class Simulator
     , 1)
     @clock_interval=setInterval(=>
       @corrigeClock()
+      @view.updateVew();
     , 1000)
 
   corrigeClock: ->
@@ -111,6 +116,18 @@ class Simulator
     for i in [0..@clock_t]
       @run() if @automatic
     @clock_count+=@clock_t
+
+  getBG: ->
+    @vid.getBG()
+    
+  getSprites: ->
+    @vid.getSprites()
+
+  getOAM: ->
+    @vid.getOAM();
+
+  getPalette: ->
+    @vid.getPalette();
 
   stop: ->
     @automatic=false
@@ -281,36 +298,36 @@ class Simulator
           key = getKey();#getch();
           @reg[rx] = pega_pedaco(key,7,0);
         else if @reg[ry] >= 0x990 && @reg[ry] < 0x994 #PIT
-          pit.get(ry%4)
+          @pit.get(ry%4)
         else
           console.log "Erro: Voce tentou usar uma porta nao implementada ", @reg[ry]
 
       when Mnemonics.OUTCHAR
         if(@reg[ry] == 0) #video ADDR BG
-          #vid.setAddrBG(@reg[rx]);
+          @vid.setAddrBG(@reg[rx]);
         else if(@reg[ry] == 1) #video BG
-          #vid.addBG(@reg[rx]);
+          @vid.addBG(@reg[rx]);
         else if(@reg[ry] == 2) #video ADDR OAM
-          #vid.setAddrOAM(@reg[rx]);
+          @vid.setAddrOAM(@reg[rx]);
         else if(@reg[ry] == 3) #Vdeo OAM
-          #vid.addObject(@reg[rx]);
+          @vid.addObject(@reg[rx]);
         else if(@reg[ry] == 4) #video ADDR SPRITE
-          #vid.setAddrSprite(@reg[rx]);
+          @vid.setAddrSprite(@reg[rx]);
         else if(@reg[ry] == 5) #video SPRITE
-          #vid.addSprite(@reg[rx]);
+          @vid.addSprite(@reg[rx]);
         else if(@reg[ry] == 6) #video ADDR PALETTE
-          #vid.setAddrPalette(@reg[rx]);
+          @vid.setAddrPalette(@reg[rx]);
         else if(@reg[ry] == 7) #video PALETTE
-          #vid.addPalette(@reg[rx]);
+          @vid.addPalette(@reg[rx]);
         else if(@reg[ry] >= 0x901 && @reg[ry] <= 0x902) #com1
 
         else if(@reg[ry] >= 0x990 && @reg[ry] < 0x994)#PIT
-          pit.set(ry%4, rx)
+          @pit.set(ry%4, rx)
         else
           console.log "Erro: Voce tentou usar uma porta não implementada ", @reg[ry]
 
       when Mnemonics.EI
-        switch pega_pedaco(@ir,0,0)
+        switch @pega_pedaco(@ir,0,0)
           when 0
             @c0[0] = 0
           else
@@ -613,6 +630,18 @@ class Simulator
     else
       'untitled'
 
+  # Register a callback for when the image file changes
+  onDidChange: (callback) ->
+    changeSubscription = @file.onDidChange(callback)
+    @subscriptions.add(changeSubscription)
+    changeSubscription
+
+  # Register a callback for whne the image's title changes
+  onDidChangeTitle: (callback) ->
+    renameSubscription = @file.onDidRename(callback)
+    @subscriptions.add(renameSubscription)
+    renameSubscription
+
   # Retrieves the URI of the souce.
   #
   # Returns a {String}.
@@ -629,7 +658,6 @@ class Simulator
   #
   # Returns a {Boolean}.
   isEqual: (other) ->
-    console.log('compara')
     other instanceof Simulator and @getURI() is other.getURI()
 
   # Essential: Invoke the given callback when the editor is destroyed.

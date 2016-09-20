@@ -41,10 +41,25 @@
     display: flex;
     overflow: auto;
 
-    canvas {
+    .canvas-container {
       flex: none;
       margin: auto;
-      background: black;
+      width: 640px;
+      height: 480px;
+
+      canvas {
+        width: 640px;
+        height: 480px;
+        position: fixed;
+        flex: none;
+        margin: auto;
+      }
+    }
+
+    .simulator-code{
+      background-color: @tool-panel-background-color;
+      width: 400px;
+      padding: 10px;
     }
   }
 }

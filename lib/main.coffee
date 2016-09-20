@@ -4,6 +4,7 @@ _ = require 'underscore-plus'
 Simulator = require './simulator'
 {Emitter, File, CompositeDisposable} = require 'atom'
 
+simulatorView = null
 baseURI = 'atom://ap9'
 module.exports =
   activate: ->
@@ -24,8 +25,8 @@ module.exports =
     return unless atom.workspace.getActivePaneItem() instanceof Simulator
 
     SimulatorStatusView = require './simulator-status-view'
-    view = new SimulatorStatusView(@statusBar)
-    view.attach()
+    @simulatorStatusView = new SimulatorStatusView(@statusBar)
+    @simulatorStatusView.attach()
 
     @statusViewAttached = true
 
@@ -39,4 +40,4 @@ module.exports =
 openURI = (uriToOpen) ->
   uriExtension = path.extname(uriToOpen).toLowerCase()
   if _.include(['.mif'], uriExtension)
-    new Simulator(uriToOpen)
+    simulatorView ?= new Simulator uriToOpen
