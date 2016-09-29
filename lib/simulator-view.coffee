@@ -42,8 +42,7 @@ class SimulatorView  extends View
         @input class: 'inline-block range',  type: "range", name: "clockSel", id: "clockSel" ,min: "1", max: "1000000", value: "100000"
       @div class: "simulator-container", =>
         @div class: "canvas-container", =>
-          @canvas class: "canvas", width: "640px", height: "480px", focusable="True", outlet: "canvasBack"
-          @canvas class: "canvas", width: "640px", height: "480px", focusable="True", outlet: "canvasFront"
+          @canvas class: "canvas", width: "320px", height: "240px", focusable="True", outlet: "canvas"
         @div class: "simulator-code", =>
           @p "none yet"
 
@@ -77,10 +76,12 @@ class SimulatorView  extends View
       'simulator-view:reset': => @reset()
       'simulator-view:next': => @next()
 
-    @ctxBg=@canvasBack[0].getContext("2d")
-    @ctxFr=@canvasFront[0].getContext("2d")
+    @ctx=@canvas[0].getContext("2d")
+    @ctx.imageSmoothingEnabled= false
+    @ctx.webkitImageSmoothingEnabled = false;
+    @ctx.mozImageSmoothingEnabled = false;
 
-    @canvasData = [@ctxBg.getImageData(0, 0, 640, 480), @ctxFr.getImageData(0, 0, 640, 480)]
+    @canvasData = @ctx.getImageData(0, 0, 320, 240)
 
   next: ->
     console.log "next"
@@ -100,57 +101,46 @@ class SimulatorView  extends View
 
   updateVew: () ->
     bg = @simulator.getBG()
-    @drawOnScreen 0, bg[i].c, bg[i].p, 8*(i%40), 8*(i/40), bg[i].v, bg[i].h for i in [0..1200]
-    @updateCanvas(0)
+    @drawOnScreen bg[i].c, bg[i].p, 8*(i%40), 8*parseInt(i/40), bg[i].v, bg[i].h for i in [0..1199]
 
     oam = @simulator.getOAM()
-    @drawOnScreen 1, oam[i].c, oam[i].p, oam[i].x, oam[i].y, oam[i].v, oam[i].h for i in [0..128]
-    @updateCanvas(1)
-  drawOnScreen: (canvas, sprite, palette, x, y, v, h) ->
+    @drawOnScreen oam[i].c>>3, oam[i].p, oam[i].x, oam[i].y, oam[i].v, oam[i].h for i in [0..127]
+    @updateCanvas()
+
+  drawOnScreen: (sprite, palette, x, y, v, h) ->
      sprites = @simulator.getSprites();
-     for i in [0..8]
-        for j in [0..8]
+     for i in [0..7]
+        for j in [0..7]
           color = ((sprites[(sprite<<3)+i])>>j&1) + ((sprites[(sprite<<3)+i]>>(j+8))&1)*2
-          indexX = (8-j+x)*2
-          indexY = (i+y)*2
+          indexX = (7-j+x)
+          indexY = (i+y)
           if v && !h
-            indexX = (j+x)*2
+            indexX = (j+x)
           else if h && !v
-            indexY = (8-i+y)*2
-
+            indexY = (7-i+y)
           else if v && h
-            indexX = (j+x)*2
-            indexY = (8-i+y)*2
+            indexX = (j+x)
+            indexY = (7-i+y)
 
-          @drawPixel canvas, indexX, indexY, palette, color
+          @drawPixel indexX, indexY, palette, color
 
   # -------- Video --------
-  drawPixel: (canvas, x, y, palette, color) ->
+  drawPixel: (x, y, palette, color) ->
+    p = @simulator.getPalette()
+    c = p[palette << 2 | color];
+    B = c.blue*8
+    G = c.green*8
+    R = c.red*8
+    A = 255
 
-    if canvas==1 and color == 0
-      A = 0
-    else
-      p = @simulator.getPalette()
-      c = p[palette << 2 | color];
-      B = c.blue/32.0
-      G = c.green/32.0
-      R = c.red/32.0
-      A = 255
+    index = (x + y * 320) * 4;
+    @canvasData.data[index + 0] = R;
+    @canvasData.data[index + 1] = G;
+    @canvasData.data[index + 2] = B;
+    @canvasData.data[index + 3] = A;
 
-    for i in [x*2..x*2+2]
-      for j in [y*2..y*2+2]
-        index = (i + j * 640) * 4;
-
-        @canvasData[canvas].data[index + 0] = R;
-        @canvasData[canvas].data[index + 1] = G;
-        @canvasData[canvas].data[index + 2] = B;
-        @canvasData[canvas].data[index + 3] = A;
-
-  updateCanvas: (canvas) ->
-    if(canvas)
-      @ctxFr.putImageData(@canvasData[canvas], 0, 0);
-    else
-      @ctxBg.putImageData(@canvasData[canvas], 0, 0);
+  updateCanvas: ->
+    @ctx.putImageData(@canvasData, 0, 0);
 
   # Retrieves this view's pane.
   #
