@@ -51,7 +51,7 @@ class Simulator
     #----Clock----
     @clock_count=0
     @clock_t=400
-    @clock=100000
+    @clock=1000000
     @clock_interval
     undefined
 
@@ -83,6 +83,7 @@ class Simulator
     else
       @run() # executa soh uma vez
       @updateRegisters()
+      @view.updateVew();
     undefined
 
   automaticProcess: ->
@@ -93,7 +94,6 @@ class Simulator
     , 1)
     @clock_interval=setInterval(=>
       @corrigeClock()
-      @view.updateVew();
     , 1000)
 
   corrigeClock: ->
@@ -110,16 +110,19 @@ class Simulator
 
     @emitter.emit 'clock-change', atual
     console.log atual
+    console.log @view.fps
     @clock_count=0
 
   multiplicadorClock: ->
     for i in [0..@clock_t]
-      @run() if @automatic
+      if @automatic
+        @run()
+        @view.rasterizeView() if i<20
     @clock_count+=@clock_t
 
   getBG: ->
     @vid.getBG()
-    
+
   getSprites: ->
     @vid.getSprites()
 
@@ -182,12 +185,12 @@ class Simulator
     @view.sp.getModel().setText @sp.toString 16 if @hex
 
   getKey: ->
-    @key = 255
     if(@key>=65 && @key <=90)
       @key+=32
     return @key
 
   setKey: (k)->
+    @irq[3] = 1;
     @key = k
 
   setPC: (value) =>
@@ -216,62 +219,16 @@ class Simulator
       #Ciclo de interrupcao
       for i in [0..6]
         if(@irq[i])
-          irq = true;
+          irq = i;
           break;
-    if @irq and not @c0[1] and @c0[0]
+    if irq!=false and not @c0[1] and @c0[0]
       @c0[1] = 1;
       @mem[@sp] = @pc;
       @sp--;
 
       #Executa interrupcao
-      if @irq[0]
-          pc = @mem[0x7ff0];
-          @irq[0] = 0;
-      else if(@irq[1])
-          pc = @mem[0x7ff1];
-          @irq[1] = 0;
-      else if(@irq[2])
-          pc = @mem[0x7ff2];
-          @irq[2] = 0;
-      else if(@irq[3])
-          pc = @mem[0x7ff3];
-          @irq[3] = 0;
-      else if(@irq[4])
-          pc = @mem[0x7ff4];
-          @irq[4] = 0;
-      else if(@irq[5])
-          pc = @mem[0x7ff5];
-          @irq[5] = 0;
-      else if(@irq[6])
-          pc = @mem[0x7ff6];
-          @irq[6] = 0;
-      else if(@irq[7])
-          pc = @mem[0x7ff7];
-          @irq[7] = 0;
-      else if(@irq[8])
-          pc = @mem[0x7ff8];
-          @irq[8] = 0;
-      else if(@irq[9])
-          pc = @mem[0x7ff9];
-          @irq[9] = 0;
-      else if(@irq[10])
-          pc = @mem[0x7ffa];
-          @irq[10] = 0;
-      else if(@irq[11])
-          pc = @mem[0x7ffb];
-          @irq[11] = 0;
-      else if(@irq[12])
-          pc = @mem[0x7ffc];
-          @irq[12] = 0;
-      else if(@irq[13])
-          pc = @mem[0x7ffd];
-          @irq[13] = 0;
-      else if(@irq[14])
-          pc = @mem[0x7ffe];
-          @irq[14] = 0;
-      else if(@irq[15])
-          pc = @mem[0x7fff];
-          @irq[15] = 0;
+      @pc = @mem[0x7ff0+irq];
+      @irq[irq] = 0;
 
     # ----- Ciclo de Busca: --------
     @ir = @mem[@pc]
@@ -295,8 +252,8 @@ class Simulator
     switch opcode
       when Mnemonics.INCHAR
         if @reg[ry] == 0x900 #keyboard
-          key = getKey();#getch();
-          @reg[rx] = pega_pedaco(key,7,0);
+          key = @getKey();#getch();
+          @reg[rx] = @pega_pedaco(key,7,0);
         else if @reg[ry] >= 0x990 && @reg[ry] < 0x994 #PIT
           @pit.get(ry%4)
         else
@@ -325,13 +282,6 @@ class Simulator
           @pit.set(ry%4, rx)
         else
           console.log "Erro: Voce tentou usar uma porta não implementada ", @reg[ry]
-
-      when Mnemonics.EI
-        switch @pega_pedaco(@ir,0,0)
-          when 0
-            @c0[0] = 0
-          else
-            @c0[0] = 1
 
       when Mnemonics.MOV
         switch @pega_pedaco(@ir,1,0)
@@ -436,7 +386,10 @@ class Simulator
       when Mnemonics.RTS
         @sp++
         @pc = @mem[@sp]
-        @pc++
+        if not @pega_pedaco(@ir,0,0)
+          @pc++
+        else
+          @c0[1] = 0
 
       when Mnemonics.ADD
         @reg[rx] = @reg[ry] + @reg[rz] # Soma sem Carry
@@ -548,47 +501,14 @@ class Simulator
       when Mnemonics.BREAKP
         @stop()
 
+      when Mnemonics.EI
+        switch @pega_pedaco(@ir,0,0)
+          when 0
+            @c0[0] = 0
+          else
+            @c0[0] = 1
+
     @reg[rx]=@reg[rx]&0xffff
-
-    # ----- Ciclo de Busca: --------
-    ir2 = @mem[@pc]
-    @pc2 = @pc + 1
-    # ----------- -- ---------------
-
-    # when .das instrucoes
-    opcode = @pega_pedaco(ir2,15,10)
-
-    switch(opcode)
-      when Mnemonics.JMP
-        la = @pega_pedaco(ir2,9,6)
-
-        if (la == 0) or (@fr[0]==1 and (la==7)) or ((@fr[2]==1 or @fr[0]==1) and (la==9)) or (@fr[1]==1 and (la==8))or ((@fr[2]==1 or @fr[1]==1) and (la==10)) or (@fr[2]==1 and (la==1)) or (@fr[2]==0 and (la==2)) or (@fr[3]==1 and (la==3)) or (@fr[3]==0 and (la==4)) or (@fr[4]==1 and (la==5)) or (@fr[4]==0 and (la==6)) or (@fr[5]==1 and (la==11)) or (@fr[5]==0 and (la==12)) or (@fr[6]==1 and (la==14)) or (@fr[9]==1 and (la==13))
-            @pc2 = @mem[@pc2]
-          else
-            @pc2++
-
-      when Mnemonics.CALL
-        la = @pega_pedaco(ir2,9,6)
-
-        if (la == 0) or (@fr[0]==1 and (la==7)) or ((@fr[2]==1 or @fr[0]==1) and (la==9)) or (@fr[1]==1 and (la==8))or ((@fr[2]==1 or @fr[1]==1) and (la==10)) or (@fr[2]==1 and (la==1)) or (@fr[2]==0 and (la==2)) or (@fr[3]==1 and (la==3)) or (@fr[3]==0 and (la==4)) or (@fr[4]==1 and (la==5)) or (@fr[4]==0 and (la==6)) or (@fr[5]==1 and (la==11)) or (@fr[5]==0 and (la==12)) or (@fr[6]==1 and (la==14)) or (@fr[9]==1 and (la==13))
-            @pc2 = @mem[@pc2]
-          else
-            @pc2++
-
-      when Mnemonics.RTS
-        @pc2 = @mem[@sp+1]
-        @pc2++
-
-      when Mnemonics.LOADIMED
-        @pc2++
-
-      when Mnemonics.BREAKP
-        @stop()
-        #@notifyProcessamento()
-
-      when Mnemonics.HALT
-        @stop()
-        #@notifyProcessamento()
 
   undefined
 

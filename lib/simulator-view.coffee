@@ -42,12 +42,13 @@ class SimulatorView  extends View
         @input class: 'inline-block range',  type: "range", name: "clockSel", id: "clockSel" ,min: "1", max: "1000000", value: "100000"
       @div class: "simulator-container", =>
         @div class: "canvas-container", =>
-          @canvas class: "canvas", width: "320px", height: "240px", focusable="True", outlet: "canvas"
+          @canvas class: "canvas", focusable="True", outlet: "canvas"
         @div class: "simulator-code", =>
           @p "none yet"
 
   initialize: (@simulator) ->
     @emitter = @simulator.emitter
+    @line = 0
 
   attached: ->
     @disposables = new SubAtom
@@ -77,11 +78,61 @@ class SimulatorView  extends View
       'simulator-view:next': => @next()
 
     @ctx=@canvas[0].getContext("2d")
+    @fixCanvasForPPI(320,240)
     @ctx.imageSmoothingEnabled= false
     @ctx.webkitImageSmoothingEnabled = false;
     @ctx.mozImageSmoothingEnabled = false;
 
     @canvasData = @ctx.getImageData(0, 0, 320, 240)
+
+  fixCanvasForPPI: (width, height) ->
+
+      width = parseInt(width);
+      height = parseInt(height);
+
+      #finally query the various pixel ratios
+      devicePixelRatio = window.devicePixelRatio || 1;
+      backingStoreRatio = @ctx.webkitBackingStorePixelRatio ||
+                          @ctx.mozBackingStorePixelRatio ||
+                          @ctx.msBackingStorePixelRatio ||
+                          @ctx.oBackingStorePixelRatio ||
+                          @ctx.backingStorePixelRatio || 1;
+      ratio = devicePixelRatio / backingStoreRatio;
+      #ensure we have a value set for auto.
+      #// If auto is set to false then we
+      #// will simply not upscale the canvas
+      #// and the default behaviour will be maintained
+      #// upscale the canvas if the two ratios don't match
+      if (devicePixelRatio != backingStoreRatio)
+
+          @canvas.attr({
+              'width': width * ratio,
+              'height': height * ratio
+          });
+
+          @canvas.css({
+              'width': width + 'px',
+              'height': height + 'px'
+          });
+
+          #// now scale the context to counter
+          #// the fact that we've manually scaled
+          #// our canvas element
+          @ctx.scale(ratio, ratio);
+
+
+      #// No weird ppi so just resize canvas to fit the tag
+      else
+
+          @canvas.attr({
+              'width': width,
+              'height': height
+          });
+
+          @canvas.css({
+              'width': width + 'px',
+              'height': height + 'px'
+          });
 
   next: ->
     console.log "next"
@@ -101,13 +152,83 @@ class SimulatorView  extends View
 
   updateVew: () ->
     bg = @simulator.getBG()
-    @drawOnScreen bg[i].c, bg[i].p, 8*(i%40), 8*parseInt(i/40), bg[i].v, bg[i].h for i in [0..1199]
+    @drawOnScreen 0, bg[i].c, bg[i].p, 8*(i%40), 8*parseInt(i/40), bg[i].v, bg[i].h for i in [0..1199]
 
     oam = @simulator.getOAM()
-    @drawOnScreen oam[i].c>>3, oam[i].p, oam[i].x, oam[i].y, oam[i].v, oam[i].h for i in [0..127]
+    @drawOnScreen 1, oam[i].c, oam[i].p, oam[i].x, oam[i].y, oam[i].v, oam[i].h for i in [0..127]
     @updateCanvas()
 
-  drawOnScreen: (sprite, palette, x, y, v, h) ->
+  rasterizeView: () ->
+    @rasterize_background_line @line
+    @rasterize_sprites_line @line
+    @line++
+    if(@line==240)
+      @updateCanvas()
+      @line = 0
+
+  rasterize_background_line: (line) ->
+    bg = @simulator.getBG()
+    sprites = @simulator.getSprites();
+    row = parseInt line/8
+    offset = line%8
+    for k in [row*40..(row+1)*40-1]
+      x = 8*(k%40)
+      y = line
+      sprite = bg[k].c
+      palette = bg[k].p
+      v = bg[k].v
+      h = bg[k].h
+      i = offset
+      sprite = sprites[(sprite<<3)+i];
+      for j in [0..7]
+        color = ((sprite)>>j&1) + ((sprite>>(j+8))&1)*2
+        indexX = (7-j+x)
+        indexY = (i+y)
+        #TODO: fix V and H
+        if v && !h
+          indexX = (j+x)
+        else if h && !v
+          indexY = (7-i+y)
+        else if v && h
+          indexX = (j+x)
+          indexY = (7-i+y)
+        @drawPixel 0, indexX, line, palette, color
+    undefined
+
+
+  rasterize_sprites_line: (line) ->
+    oam = @simulator.getOAM()
+    sprites = @simulator.getSprites();
+    count = 0
+    offset = line%8
+    for k in [0..127]
+      if count==8 then break;
+      if line>=oam[k].y && line<oam[k].y+8
+        x = oam[k].x
+        y = line
+        sprite = oam[k].c
+        palette = oam[k].p
+        v = oam[k].v
+        h = oam[k].h
+        i = offset
+        sprite = sprites[(sprite<<3)+i];
+        for j in [0..7]
+          color = ((sprite)>>j&1) + ((sprite>>(j+8))&1)*2
+          indexX = (7-j+x)
+          indexY = (i+y)
+          #TODO: fix V and H
+          if v && !h
+            indexX = (j+x)
+          else if h && !v
+            indexY = (7-i+y)
+          else if v && h
+            indexX = (j+x)
+            indexY = (7-i+y)
+          @drawPixel 1, indexX, line, palette, color if color
+        count++
+    undefined
+
+  drawOnScreen: (layer, sprite, palette, x, y, v, h) ->
      sprites = @simulator.getSprites();
      for i in [0..7]
         for j in [0..7]
@@ -121,17 +242,23 @@ class SimulatorView  extends View
           else if v && h
             indexX = (j+x)
             indexY = (7-i+y)
-
-          @drawPixel indexX, indexY, palette, color
+          if (layer==1 && color) or layer == 0
+            @drawPixel layer, indexX, indexY, palette, color
 
   # -------- Video --------
-  drawPixel: (x, y, palette, color) ->
+  drawPixel: (layer, x, y, palette, color) ->
     p = @simulator.getPalette()
-    c = p[palette << 2 | color];
-    B = c.blue*8
-    G = c.green*8
-    R = c.red*8
-    A = 255
+    if layer==0 and color==0
+      A = 0
+      B = 0
+      G = 0
+      R = 0
+    else
+      c = p[palette << 2 | color];
+      B = c.blue*8
+      G = c.green*8
+      R = c.red*8
+      A = 255
 
     index = (x + y * 320) * 4;
     @canvasData.data[index + 0] = R;
@@ -140,6 +267,9 @@ class SimulatorView  extends View
     @canvasData.data[index + 3] = A;
 
   updateCanvas: ->
+    thisLoop = new Date
+    @fps = 1000 / (thisLoop - @lastLoop)
+    @lastLoop = thisLoop
     @ctx.putImageData(@canvasData, 0, 0);
 
   # Retrieves this view's pane.
