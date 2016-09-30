@@ -34,7 +34,7 @@ module.exports =
     @disposables.dispose()
 
   openSimulator: ->
-    atom.workspace.open(baseURI)
+    atom.workspace.open baseURI
 
 # Files with these extensions will be opened on simulator
 openURI = (uriToOpen) ->

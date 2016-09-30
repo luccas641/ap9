@@ -71,6 +71,7 @@ class SimulatorView  extends View
       console.log('onchange')
       @toggleBtn.html(status)
 
+
     #@disposables.add @simulator.onDidChange => @updateImageURI()
     @disposables.add atom.commands.add @element,
       'simulator-view:toggle': => @toggle()
@@ -178,22 +179,18 @@ class SimulatorView  extends View
       palette = bg[k].p
       v = bg[k].v
       h = bg[k].h
-      i = offset
+      if !h
+        i = offset
+      else
+        i = 7 - offset
       sprite = sprites[(sprite<<3)+i];
       for j in [0..7]
-        color = ((sprite)>>j&1) + ((sprite>>(j+8))&1)*2
         indexX = (7-j+x)
-        indexY = (i+y)
-        #TODO: fix V and H
-        if v && !h
+        if v
           indexX = (j+x)
-        else if h && !v
-          indexY = (7-i+y)
-        else if v && h
-          indexX = (j+x)
-          indexY = (7-i+y)
+
+        color = ((sprite)>>j&1) + ((sprite>>(j+8))&1)*2
         @drawPixel 0, indexX, line, palette, color
-    undefined
 
 
   rasterize_sprites_line: (line) ->
@@ -210,20 +207,17 @@ class SimulatorView  extends View
         palette = oam[k].p
         v = oam[k].v
         h = oam[k].h
-        i = offset
+        if !h
+          i = offset
+        else
+          i = 7 - offset
         sprite = sprites[(sprite<<3)+i];
         for j in [0..7]
-          color = ((sprite)>>j&1) + ((sprite>>(j+8))&1)*2
           indexX = (7-j+x)
-          indexY = (i+y)
-          #TODO: fix V and H
-          if v && !h
+          if v
             indexX = (j+x)
-          else if h && !v
-            indexY = (7-i+y)
-          else if v && h
-            indexX = (j+x)
-            indexY = (7-i+y)
+
+          color = ((sprite)>>j&1) + ((sprite>>(j+8))&1)*2
           @drawPixel 1, indexX, line, palette, color if color
         count++
     undefined

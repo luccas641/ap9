@@ -83,7 +83,7 @@ class Simulator
     else
       @run() # executa soh uma vez
       @updateRegisters()
-      @view.updateVew();
+      @view.updateView();
     undefined
 
   automaticProcess: ->
