@@ -36,13 +36,13 @@ class Simulator
 
     @pc = 0
     @ir = 0
-    @sp = 0x7FFC
+    @sp = 0x7FE9
     @auxpc = 0
     @pc2 = 0
 
     @setPC 0
     @setIR 0
-    @setSP 0x7FFC
+    @setSP 0x7FE9
     @fr = [0, 0, 0, 0, 0 , 0, 0, 0, 0, 0, 0, 0, 0 , 0, 0, 0]
     @c0 = [0, 0, 0, 0, 0 , 0, 0, 0, 0, 0, 0, 0, 0 , 0, 0, 0]
     @irq = [0, 0, 0, 0, 0 , 0, 0, 0, 0, 0, 0, 0, 0 , 0, 0, 0]
@@ -228,6 +228,7 @@ class Simulator
 
       #Executa interrupcao
       @pc = @mem[0x7ff0+irq];
+
       @irq[irq] = 0;
 
     # ----- Ciclo de Busca: --------
@@ -246,7 +247,6 @@ class Simulator
     ry = @pega_pedaco(@ir,6,4)
     rz = @pega_pedaco(@ir,3,1)
     # ------------- -- --------------
-
     # when .das instrucoes
     opcode = @pega_pedaco(@ir,15,10)
     switch opcode

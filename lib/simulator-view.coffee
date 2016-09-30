@@ -173,24 +173,26 @@ class SimulatorView  extends View
     row = parseInt line/8
     offset = line%8
     for k in [row*40..(row+1)*40-1]
-      x = 8*(k%40)
-      y = line
-      sprite = bg[k].c
-      palette = bg[k].p
-      v = bg[k].v
-      h = bg[k].h
-      if !h
-        i = offset
-      else
-        i = 7 - offset
-      sprite = sprites[(sprite<<3)+i];
-      for j in [0..7]
-        indexX = (7-j+x)
-        if v
-          indexX = (j+x)
+      #if bg[k].dirty
+        x = 8*(k%40)
+        y = line
+        sprite = bg[k].c
+        palette = bg[k].p
+        v = bg[k].v
+        h = bg[k].h
+        if !h
+          i = offset
+        else
+          i = 7 - offset
+        sprite = sprites[(sprite<<3)+i];
+        #bg[k].dirty = false if offset == 7
+        for j in [0..7]
+          indexX = (7-j+x)
+          if v
+            indexX = (j+x)
 
-        color = ((sprite)>>j&1) + ((sprite>>(j+8))&1)*2
-        @drawPixel 0, indexX, line, palette, color
+          color = ((sprite)>>j&1) + ((sprite>>(j+8))&1)*2
+          @drawPixel 0, indexX, line, palette, color
 
 
   rasterize_sprites_line: (line) ->
@@ -202,15 +204,15 @@ class SimulatorView  extends View
       if count==8 then break;
       if line>=oam[k].y && line<oam[k].y+8
         x = oam[k].x
-        y = line
+        y = oam[k].y
         sprite = oam[k].c
         palette = oam[k].p
         v = oam[k].v
         h = oam[k].h
         if !h
-          i = offset
+          i = line - y
         else
-          i = 7 - offset
+          i = 7 - line + y
         sprite = sprites[(sprite<<3)+i];
         for j in [0..7]
           indexX = (7-j+x)
