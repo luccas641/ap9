@@ -151,7 +151,7 @@ class SimulatorView  extends View
   onDidLoad: (callback) ->
     @emitter.on 'did-load', callback
 
-  updateVew: () ->
+  updateView: () ->
     bg = @simulator.getBG()
     @drawOnScreen 0, bg[i].c, bg[i].p, 8*(i%40), 8*parseInt(i/40), bg[i].v, bg[i].h for i in [0..1199]
 
