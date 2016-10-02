@@ -65,6 +65,7 @@ class Video
     undefined
 
   addPalette: (data)->
+    @isPalettesDirty = true;
     @palette[@addrPalette] = {
       red: (data>>10)&31
       green: (data>>5)&31
@@ -102,6 +103,7 @@ class Video
     undefined
 
   reset: () ->
+    @isPalettesDirty = true;
     @sprites = new Array(2048)
     @sprites[i] = new Array(8) for i in [0..2048]
     @oam = new Array(512)

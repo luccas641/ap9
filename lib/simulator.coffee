@@ -53,11 +53,18 @@ class Simulator
     @clock_t=400
     @clock=1000000
     @clock_interval
-    @fpsMult = 32
+    @fpsMult = 36
     undefined
 
   setView: (v) ->
     @view = v
+
+
+  isPalettesDirty: ->
+    @vid.isPalettesDirty
+
+  setPalletesDirty: (status) ->
+    @vid.isPalettesDirty = status
 
   switchMode: ->
     if @automatic == false

@@ -26,6 +26,7 @@ class SimulatorView  extends View
         @div class: 'inline-block btn-group', =>
           @button class: 'inline-block btn', outlet: 'nextBtn', type: "button", id: "buttonNext",  "Próximo"
           @button class: 'inline-block btn', outlet: 'toggleBtn', type: "button", id: "buttonAutomatico",  "Automatico"
+          @button class: 'inline-block btn', outlet: 'resetBtn', type: "button", id: "buttonReset",  "Resetar"
       @div class: "simulator-panel block", =>
         @label id: "labelPC", "PC"
         @subview "pc", new TextEditorView(mini: true, attributes: {id: "pc", outlet: "pc", type: "string", class: "inline-block reg"})
@@ -39,13 +40,10 @@ class SimulatorView  extends View
         @subview "c0", new TextEditorView(mini: true, attributes: {id: "c0", outlet: "c0", type: "string", class: "inline-block reg big"})
         @label id: "labelIRQ", "IRQ"
         @subview "irq", new TextEditorView(mini: true, attributes: {id: "irq", outlet: "irq", type: "string", class: "inline-block reg big"})
-        @input class: 'inline-block range',  type: "range", name: "clockSel", id: "clockSel" ,min: "1", max: "1000000", value: "100000"
       @div class: "simulator-container", =>
         @div class: "canvas-container", =>
           @canvas class: "canvas", focusable="True", outlet: "canvas"
           @canvas class: "canvas", focusable="True", outlet: "canvasOam"
-        @div class: "simulator-code", =>
-          @p "none yet"
 
   initialize: (@simulator) ->
     @emitter = @simulator.emitter
@@ -67,6 +65,9 @@ class SimulatorView  extends View
 
     @disposables.add @nextBtn, 'click', =>
       @next()
+
+    @disposables.add @resetBtn, 'click', =>
+      @reset()
 
     @disposables.add @toggleBtn, 'click', =>
       @toggle()
@@ -207,7 +208,7 @@ class SimulatorView  extends View
     row = parseInt line/8
     offset = line%8
     for k in [row*40..(row+1)*40-1]
-      if bg[k].dirty
+      if bg[k].dirty or @simulator.isPalettesDirty()==false
         x = 8*(k%40)
         y = line
         sprite = bg[k].c
@@ -234,7 +235,7 @@ class SimulatorView  extends View
     offset = line%8
     for k in [0..127]
       if count==8 then break;
-      if line>=oam[k].y && line<oam[k].y+8 && oam[k].dirty
+      if line>=oam[k].y && line<oam[k].y+8 && (oam[k].dirty or @simulator.isPalettesDirty()==false)
         x = oam[k].x
         y = oam[k].y
         sprite = oam[k].c
@@ -306,6 +307,7 @@ class SimulatorView  extends View
     @ctx.putImageData @canvasData, 0, 0
     @ctxOam.putImageData @canvasDataOam, 0, 0
     @canvasDataOam = @ctxOam.createImageData 320,240
+    @simulator.setPalletesDirty false
 
   # Retrieves this view's pane.
   #
