@@ -53,6 +53,7 @@ class Simulator
     @clock_t=400
     @clock=1000000
     @clock_interval
+    @fpsMult = 32
     undefined
 
   setView: (v) ->
@@ -89,12 +90,8 @@ class Simulator
   automaticProcess: ->
     @start = new Date()
     @clock_count=1000
-    @interval=setInterval( =>
-      @multiplicadorClock()
-    , 1)
-    @clock_interval=setInterval(=>
-      @corrigeClock()
-    , 1000)
+    @multiplicadorClock()
+    @corrigeClock()
 
   corrigeClock: ->
     atual = @clock_count
@@ -102,23 +99,29 @@ class Simulator
     @clock_t=10000 if @clock_t>10000
     @clock_t=1 if @clock_t<1
     if atual>1000000
-      atual = parseInt(atual/1000000) + " mhz"
+      atual = (atual/1000000).toFixed(2) + " mhz"
     else if(atual>1000)
-      atual = parseInt(atual/1000) + " khz"
+      atual = (atual/1000).toFixed(2) + " khz"
     else
-      atual = parseInt(atual)+" hz"
+      atual = (atual).toFixed(2)+" hz"
 
     @emitter.emit 'clock-change', atual
     console.log atual
-    console.log @view.fps
+    console.log @view.fps, @fpsMult
     @clock_count=0
+    setTimeout(=>
+      @corrigeClock()
+    , 1000) if @automatic
 
   multiplicadorClock: ->
     for i in [0..@clock_t]
       if @automatic
         @run()
-        @view.rasterizeView() if i<20
-    @clock_count+=@clock_t
+        @view.rasterizeView() if i<@fpsMult
+    @clock_count+=@clock_t*3.5
+    setTimeout( =>
+      @multiplicadorClock()
+    , 1) if @automatic
 
   getBG: ->
     @vid.getBG()
@@ -135,8 +138,8 @@ class Simulator
   stop: ->
     @automatic=false
     @updateRegisters()
-    window.clearInterval(@interval)
-    window.clearInterval(@clock_interval)
+    #window.clearInterval(@interval)
+    #window.clearInterval(@clock_interval)
 
   setRegisters: ->
     @reg[0] = @view.r0.getModel().getText()
@@ -189,10 +192,25 @@ class Simulator
       @key+=32
     return @key
 
-  setKey: (k)->
-    @irq[3] = 1;
-    @key = k
+  pressKey: (k)->
+    @pressedKeys = k;
+    if(@press == 0 or @pressedKey != k)
+      clearTimeout @keyTimeout
+      @press = true;
+      @setKey k
 
+  setKey: (k)->
+    if @press
+      @irq[3] = 1;
+      @key = k
+      @keyTimeout = setTimeout =>
+        @setKey(k)
+      , 40
+    else
+      @keyTimeout = null;
+
+  releaseKey: ->
+    @press = false
   setPC: (value) =>
     @pc = value%0x10000 if value >=0
     #@reg.update@pc()

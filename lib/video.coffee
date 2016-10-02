@@ -2,6 +2,7 @@ module.exports =
 class Video
   constructor: ->
     @sprites = new Array(2048)
+    @sprites[i] = new Array(8) for i in [0..2048]
     @oam = new Array(512)
     @oam[i] = {
         x: 0
@@ -10,6 +11,7 @@ class Video
         p: 0
         v: 0
         h: 0
+        dirty: true
       } for i in [0..512]
     @bg = new Array(1200)
     @bg[i] = {
@@ -17,6 +19,7 @@ class Video
         v: 0
         h: 0
         p: 0
+        dirty: true
       } for i in [0..1200]
     @palette = new Array(128)
     @palette[i] = {
@@ -30,7 +33,8 @@ class Video
     @addrPalette = 0
 
   addSprite: (data) ->
-    @sprites[@addrSprite] = data & 0xFFFF;
+    @sprites[@addrSprite][j] = ((data)>>j&1) + ((data>>(j+8))&1)*2 for j in [0..7]
+    #@sprites[@addrSprite] = data & 0xFFFF;
     @addrSprite = (@addrSprite+1) %2048;
     undefined
 
@@ -99,6 +103,7 @@ class Video
 
   reset: () ->
     @sprites = new Array(2048)
+    @sprites[i] = new Array(8) for i in [0..2048]
     @oam = new Array(512)
     @oam[i] = {
         x: 0
@@ -107,6 +112,7 @@ class Video
         p: 0
         v: 0
         h: 0
+        dirty: true
       } for i in [0..512]
     @bg = new Array(1200)
     @bg[i] = {
@@ -114,6 +120,7 @@ class Video
         v: 0
         h: 0
         p: 0
+        dirty: true
       } for i in [0..1200]
     @palette = new Array(128)
     @palette[i] = {

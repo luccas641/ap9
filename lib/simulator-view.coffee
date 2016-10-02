@@ -43,6 +43,7 @@ class SimulatorView  extends View
       @div class: "simulator-container", =>
         @div class: "canvas-container", =>
           @canvas class: "canvas", focusable="True", outlet: "canvas"
+          @canvas class: "canvas", focusable="True", outlet: "canvasOam"
         @div class: "simulator-code", =>
           @p "none yet"
 
@@ -56,7 +57,10 @@ class SimulatorView  extends View
     @simulator.updateRegisters()
 
     @disposables.add @element, 'keydown', (evt) =>
-      @simulator.setKey(evt.which)
+      @simulator.pressKey(evt.which)
+
+    @disposables.add @element, 'keyup', (evt) =>
+      @simulator.releaseKey(evt.which)
 
     @disposables.add ".reg", 'keydown', (evt) =>
       @simulator.setRegisters();
@@ -79,12 +83,17 @@ class SimulatorView  extends View
       'simulator-view:next': => @next()
 
     @ctx=@canvas[0].getContext("2d")
+    @ctxOam=@canvasOam[0].getContext("2d")
     @fixCanvasForPPI(320,240)
     @ctx.imageSmoothingEnabled= false
     @ctx.webkitImageSmoothingEnabled = false;
     @ctx.mozImageSmoothingEnabled = false;
+    @ctxOam.imageSmoothingEnabled= false
+    @ctxOam.webkitImageSmoothingEnabled = false;
+    @ctxOam.mozImageSmoothingEnabled = false;
 
     @canvasData = @ctx.getImageData(0, 0, 320, 240)
+    @canvasDataOam = @ctxOam.getImageData(0, 0, 320, 240)
 
   fixCanvasForPPI: (width, height) ->
 
@@ -121,6 +130,20 @@ class SimulatorView  extends View
           #// our canvas element
           @ctx.scale(ratio, ratio);
 
+          @canvasOam.attr({
+              'width': width * ratio,
+              'height': height * ratio
+          });
+
+          @canvasOam.css({
+              'width': width + 'px',
+              'height': height + 'px'
+          });
+
+          #// now scale the context to counter
+          #// the fact that we've manually scaled
+          #// our canvas element
+          @ctxOam.scale(ratio, ratio);
 
       #// No weird ppi so just resize canvas to fit the tag
       else
@@ -131,6 +154,16 @@ class SimulatorView  extends View
           });
 
           @canvas.css({
+              'width': width + 'px',
+              'height': height + 'px'
+          });
+
+          @canvasOam.attr({
+              'width': width,
+              'height': height
+          });
+
+          @canvasOam.css({
               'width': width + 'px',
               'height': height + 'px'
           });
@@ -160,6 +193,7 @@ class SimulatorView  extends View
     @updateCanvas()
 
   rasterizeView: () ->
+
     @rasterize_background_line @line
     @rasterize_sprites_line @line
     @line++
@@ -173,7 +207,7 @@ class SimulatorView  extends View
     row = parseInt line/8
     offset = line%8
     for k in [row*40..(row+1)*40-1]
-      #if bg[k].dirty
+      if bg[k].dirty
         x = 8*(k%40)
         y = line
         sprite = bg[k].c
@@ -185,14 +219,12 @@ class SimulatorView  extends View
         else
           i = 7 - offset
         sprite = sprites[(sprite<<3)+i];
-        #bg[k].dirty = false if offset == 7
         for j in [0..7]
           indexX = (7-j+x)
           if v
             indexX = (j+x)
-
-          color = ((sprite)>>j&1) + ((sprite>>(j+8))&1)*2
-          @drawPixel 0, indexX, line, palette, color
+          @drawPixel 0, indexX, line, palette, sprite[j]
+        bg[k].dirty = false if offset == 7
 
 
   rasterize_sprites_line: (line) ->
@@ -202,7 +234,7 @@ class SimulatorView  extends View
     offset = line%8
     for k in [0..127]
       if count==8 then break;
-      if line>=oam[k].y && line<oam[k].y+8
+      if line>=oam[k].y && line<oam[k].y+8 && oam[k].dirty
         x = oam[k].x
         y = oam[k].y
         sprite = oam[k].c
@@ -219,9 +251,9 @@ class SimulatorView  extends View
           if v
             indexX = (j+x)
 
-          color = ((sprite)>>j&1) + ((sprite>>(j+8))&1)*2
-          @drawPixel 1, indexX, line, palette, color if color
+          @drawPixel 1, indexX, line, palette, sprite[j] if sprite[j]
         count++
+
     undefined
 
   drawOnScreen: (layer, sprite, palette, x, y, v, h) ->
@@ -255,18 +287,25 @@ class SimulatorView  extends View
       G = c.green*8
       R = c.red*8
       A = 255
-
     index = (x + y * 320) * 4;
-    @canvasData.data[index + 0] = R;
-    @canvasData.data[index + 1] = G;
-    @canvasData.data[index + 2] = B;
-    @canvasData.data[index + 3] = A;
+    if(layer==0)
+      @canvasData.data[index + 0] = R;
+      @canvasData.data[index + 1] = G;
+      @canvasData.data[index + 2] = B;
+      @canvasData.data[index + 3] = A;
+    else
+      @canvasDataOam.data[index + 0] = R;
+      @canvasDataOam.data[index + 1] = G;
+      @canvasDataOam.data[index + 2] = B;
+      @canvasDataOam.data[index + 3] = A;
 
   updateCanvas: ->
     thisLoop = new Date
     @fps = 1000 / (thisLoop - @lastLoop)
     @lastLoop = thisLoop
-    @ctx.putImageData(@canvasData, 0, 0);
+    @ctx.putImageData @canvasData, 0, 0
+    @ctxOam.putImageData @canvasDataOam, 0, 0
+    @canvasDataOam = @ctxOam.createImageData 320,240
 
   # Retrieves this view's pane.
   #
