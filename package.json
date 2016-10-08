@@ -19,6 +19,7 @@
   "dependencies": {
     "atom-space-pen-views": "^2.1.1",
     "fs-plus": "^2.0.0",
+    "q": "^1.4.1",
     "sub-atom": "^1.1.0",
     "underscore-plus": "^1.0.0"
   }

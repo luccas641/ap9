@@ -1,6 +1,7 @@
 {Emitter} = require 'atom'
 SubAtom = require('sub-atom')
 {$, View, TextEditorView} = require 'atom-space-pen-views'
+q = require('q');
 
 module.exports =
 class SimulatorView  extends View
@@ -194,7 +195,6 @@ class SimulatorView  extends View
     @updateCanvas()
 
   rasterizeView: () ->
-
     @rasterize_background_line @line
     @rasterize_sprites_line @line
     @line++
@@ -300,7 +300,7 @@ class SimulatorView  extends View
       @canvasDataOam.data[index + 2] = B;
       @canvasDataOam.data[index + 3] = A;
 
-  updateCanvas: ->
+  updateCanvas: ()->
     thisLoop = new Date
     @fps = 1000 / (thisLoop - @lastLoop)
     @lastLoop = thisLoop

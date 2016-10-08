@@ -35,7 +35,9 @@ class Simulator
       @loadMif content
 
     @pc = 0
-    @ir = 0
+    @ir = {
+      ir: 0
+    }
     @sp = 0x7FE9
     @auxpc = 0
     @pc2 = 0
@@ -50,10 +52,11 @@ class Simulator
 
     #----Clock----
     @clock_count=0
-    @clock_t=400
-    @clock=1000000
+    @clock_t=700
+    @clock=2000000
     @clock_interval
-    @fpsMult = 36
+
+    @fpsMult = 100
     undefined
 
   setView: (v) ->
@@ -103,8 +106,7 @@ class Simulator
   corrigeClock: ->
     atual = @clock_count
     @clock_t=@clock_t*@clock/@clock_count
-    @clock_t=10000 if @clock_t>10000
-    @clock_t=1 if @clock_t<1
+    @clock_t=100000 if @clock_t>100000
     if atual>1000000
       atual = (atual/1000000).toFixed(2) + " mhz"
     else if(atual>1000)
@@ -112,9 +114,10 @@ class Simulator
     else
       atual = (atual).toFixed(2)+" hz"
 
+
     @emitter.emit 'clock-change', atual
     console.log atual
-    console.log @view.fps, @fpsMult
+    console.log @view.fps
     @clock_count=0
     setTimeout(=>
       @corrigeClock()
@@ -182,8 +185,8 @@ class Simulator
     @view.pc.getModel().setText @pc.toString()
     @view.pc.getModel().setText @pc.toString 16 if @hex
 
-    @view.ir.getModel().setText @ir.toString()
-    @view.ir.getModel().setText @ir.toString 16 if @hex
+    @view.ir.getModel().setText @ir.ir.toString()
+    @view.ir.getModel().setText @ir.ir.toString 16 if @hex
 
     @view.c0.getModel().setText @c0.toString().replace(/,/g, "")
     @view.c0.getModel().setText @c0.toString(16).replace(/,/g, "") if @hex
@@ -224,7 +227,7 @@ class Simulator
     undefined
 
   setIR: (value) =>
-    @ir = value%0x10000 if value >=0
+    @ir.ir = value%0x10000 if value >=0
     #@reg.updateIR()
     undefined
 
@@ -248,17 +251,16 @@ class Simulator
           break;
     if irq!=false and not @c0[1] and @c0[0]
       @c0[1] = 1;
-      @mem[@sp] = @pc;
+      @mem[@sp].ir = @pc;
       @sp--;
 
       #Executa interrupcao
-      @pc = @mem[0x7ff0+irq];
+      @pc = @mem[0x7ff0+irq].ir;
 
       @irq[irq] = 0;
 
     # ----- Ciclo de Busca: --------
     @ir = @mem[@pc]
-
     if @pc > 32767
       @stop()
       alert "ERRO: Ultrapassou limite da memoria, coloque um jmp no fim do código\n"
@@ -268,12 +270,12 @@ class Simulator
     # ----------- -- ---------------
 
     # ------ Ciclo de Executa: ------
-    rx = @pega_pedaco(@ir,9,7)
-    ry = @pega_pedaco(@ir,6,4)
-    rz = @pega_pedaco(@ir,3,1)
+    rx = @ir.rx
+    ry = @ir.ry
+    rz = @ir.rz
     # ------------- -- --------------
     # when .das instrucoes
-    opcode = @pega_pedaco(@ir,15,10)
+    opcode = @ir.opcode
     switch opcode
       when Mnemonics.INCHAR
         if @reg[ry] == 0x900 #keyboard
@@ -309,7 +311,7 @@ class Simulator
           console.log "Erro: Voce tentou usar uma porta não implementada ", @reg[ry]
 
       when Mnemonics.MOV
-        switch @pega_pedaco(@ir,1,0)
+        switch @pega_pedaco(@ir.ir,1,0)
           when 0
             @reg[rx] = @reg[ry]
           when 1
@@ -318,21 +320,21 @@ class Simulator
             @sp = @reg[rx]
 
       when Mnemonics.STORE
-        @mem[@mem[@pc]] = @reg[rx]
+        @mem[@mem[@pc].ir].ir = @reg[rx]
         @pc++
 
       when Mnemonics.STOREINDEX
-        @mem[@reg[rx]] = @reg[ry]
+        @mem[@reg[rx]].ir = @reg[ry]
 
       when Mnemonics.LOAD
-        @reg[rx] = @mem[@mem[@pc]]
+        @reg[rx] = @mem[@mem[@pc].ir].ir
         @pc++
 
       when Mnemonics.LOADIMED
-        @reg[rx] = @mem[@pc]
+        @reg[rx] = @mem[@pc].ir
         @pc++
       when Mnemonics.LOADINDEX
-        @reg[rx] = @mem[@reg[ry]]
+        @reg[rx] = @mem[@reg[ry]].ir
 
       when Mnemonics.LAND
         @reg[rx] = @reg[ry] & @reg[rz]
@@ -376,42 +378,42 @@ class Simulator
           @fr[0] = 0
 
       when Mnemonics.JMP
-        la = @pega_pedaco(@ir,9,6)
+        la = @ir.la
         if (la == 0) or (@fr[0]==1 and (la==7)) or ((@fr[2]==1 or @fr[0]==1) and (la==9)) or (@fr[1]==1 and (la==8))or ((@fr[2]==1 or @fr[1]==1) and (la==10)) or (@fr[2]==1 and (la==1)) or (@fr[2]==0 and (la==2)) or (@fr[3]==1 and (la==3)) or (@fr[3]==0 and (la==4)) or (@fr[4]==1 and (la==5)) or (@fr[4]==0 and (la==6)) or (@fr[5]==1 and (la==11)) or (@fr[5]==0 and (la==12)) or (@fr[6]==1 and (la==14)) or (@fr[9]==1 and (la==13))
-          @pc = @mem[@pc]
+          @pc = @mem[@pc].ir
         else
           @pc++
       when Mnemonics.PUSH
-        if(!@pega_pedaco(@ir,6,6)) # @registrador
-          @mem[@sp] = @reg[rx]
+        if(!@ir.flag) # @registrador
+          @mem[@sp].ir = @reg[rx]
         else  # @fr
           temp = 0
           temp = temp + parseInt((@fr[i] * (Math.pow(2.0,i))))
-          @mem[@sp] = temp
+          @mem[@sp].ir = temp
 
         @sp--
 
       when Mnemonics.POP
         @sp++
-        if(!@pega_pedaco(@ir,6,6))  # @registrador
-            @reg[rx] = @mem[@sp]
+        if(!@ir.flag)  # @registrador
+            @reg[rx] = @mem[@sp].ir
         else # @fr
-          @fr[i] = @pega_pedaco(@mem[@sp],i,i) for i in [0..16]
+          @fr[i] = @pega_pedaco(@mem[@sp].ir,i,i) for i in [0..16]
 
       when Mnemonics.CALL
-        la = @pega_pedaco(@ir,9,6)
+        la = @ir.la
 
         if (la == 0) or (@fr[0]==1 and (la==7)) or ((@fr[2]==1 or @fr[0]==1) and (la==9)) or (@fr[1]==1 and (la==8))or ((@fr[2]==1 or @fr[1]==1) and (la==10)) or (@fr[2]==1 and (la==1)) or (@fr[2]==0 and (la==2)) or (@fr[3]==1 and (la==3)) or (@fr[3]==0 and (la==4)) or (@fr[4]==1 and (la==5)) or (@fr[4]==0 and (la==6)) or (@fr[5]==1 and (la==11)) or (@fr[5]==0 and (la==12)) or (@fr[6]==1 and (la==14)) or (@fr[9]==1 and (la==13))
-          @mem[@sp] = @pc
+          @mem[@sp].ir = @pc
           @sp--
-          @pc = @mem[@pc]
+          @pc = @mem[@pc].ir
         else
           @pc++
 
       when Mnemonics.RTS
         @sp++
-        @pc = @mem[@sp]
-        if not @pega_pedaco(@ir,0,0)
+        @pc = @mem[@sp].ir
+        if not @ir.carry
           @pc++
         else
           @c0[1] = 0
@@ -419,7 +421,7 @@ class Simulator
       when Mnemonics.ADD
         @reg[rx] = @reg[ry] + @reg[rz] # Soma sem Carry
 
-        if @pega_pedaco(@ir,0,0)   # Soma com Carry
+        if @ir.carry   # Soma com Carry
           @reg[rx] += @fr[4]
 
           @fr[3] = 0                   # -- @fr = <...|zero|equal|lesser|greater>
@@ -435,7 +437,7 @@ class Simulator
       when Mnemonics.SUB
         @reg[rx] = @reg[ry] - @reg[rz] # Subtracao sem Carry
 
-        if @pega_pedaco(@ir,0,0)==1  # Subtracao com Carry
+        if @ir.carry==1  # Subtracao com Carry
           @reg[rx] += @fr[4]
 
         @fr[3] = 0 # -- @fr = <...|zero|equal|lesser|greater>
@@ -451,7 +453,7 @@ class Simulator
       when Mnemonics.MULT
         @reg[rx] = @reg[ry] * @reg[rz] # MULT sem Carry
 
-        if(@pega_pedaco(@ir,0,0)==1)  # MULT com Carry
+        if(@ir.carry==1)  # MULT com Carry
           @reg[rx] += @fr[4]
 
           @fr[3] = 0 # -- @fr = <...|zero|equal|lesser|greater>
@@ -472,7 +474,7 @@ class Simulator
           @fr[6] = 0
 
           @reg[rx] = parseInt(@reg[ry] / @reg[rz]) # DIV sem Carry
-          if @pega_pedaco(@ir,0,0)==1   # DIV com Carry
+          if @ir.carry==1   # DIV com Carry
             @reg[rx] += @fr[4]
 
           @fr[3] = 0 # -- @fr = <...|zero|equal|lesser|greater>
@@ -489,7 +491,7 @@ class Simulator
 
       when Mnemonics.INC
         @reg[rx]++                  # Inc Rx
-        if @pega_pedaco(@ir,6,6)!=0 # Dec Rx
+        if @ir.flag!=0 # Dec Rx
           @reg[rx] = @reg[rx] - 2
 
         @fr[3] = 0 # -- @fr = <...|zero|equal|lesser|greater>
@@ -502,23 +504,23 @@ class Simulator
         if(!@reg[rx])
           @fr[3] = 1  # Se resultado = 0, seta o Flag de Zero
 
-        switch @pega_pedaco(@ir,6,4)
+        switch @pega_pedaco(@ir.ir,6,4)
           when 0
-            @reg[rx] = @reg[rx] << @pega_pedaco(@ir,3,0)
+            @reg[rx] = @reg[rx] << @ir.num
           when 1
-            @reg[rx] = ~((~(@reg[rx]) << @pega_pedaco(@ir,3,0)))
+            @reg[rx] = ~((~(@reg[rx]) << @ir.num))
           when 2
-            @reg[rx] = @reg[rx] >> @pega_pedaco(@ir,3,0)
+            @reg[rx] = @reg[rx] >> @ir.num
           when 3
-            @reg[rx] = ~((~(@reg[rx]) >> @pega_pedaco(@ir,3,0)))
+            @reg[rx] = ~((~(@reg[rx]) >> @ir.num))
 
-            if(@pega_pedaco(@ir,6,5)==2) # ROTATE LEFT
-              @reg[rx] = _rotl(@reg[rx],@pega_pedaco(@ir,3,0))
+            if(@pega_pedaco(@ir.ir,6,5)==2) # ROTATE LEFT
+              @reg[rx] = _rotl(@reg[rx],@ir.num)
             else #TODO verificar
-              @reg[rx] = _rotr(@reg[rx],@pega_pedaco(@ir,3,0))
+              @reg[rx] = _rotr(@reg[rx],@ir.num)
 
       when Mnemonics.SETC
-        @fr[4] = @pega_pedaco(@ir,9,9)
+        @fr[4] = @pega_pedaco(@ir.ir,9,9)
 
       when Mnemonics.HALT
         @stop()
@@ -527,7 +529,7 @@ class Simulator
         @stop()
 
       when Mnemonics.EI
-        switch @pega_pedaco(@ir,0,0)
+        switch  @ir.carry
           when 0
             @c0[0] = 0
           else
@@ -615,7 +617,19 @@ class Simulator
 
   loadMif: (cpuram) ->
     line = cpuram.split("\n")
-    @mem[i-6] = parseInt(line[i].split(":")[1],2) for i in [6..32775]
+    for i in [6..32775]
+       ir = parseInt(line[i].split(":")[1],2)
+       @mem[i-6] = {
+         opcode: @pega_pedaco(ir,15,10)
+         rx: @pega_pedaco(ir,9,7)
+         ry: @pega_pedaco(ir,6,4)
+         rz: @pega_pedaco(ir,3,1)
+         num: @pega_pedaco(ir,3,0)
+         flag: @pega_pedaco(ir,6,6)
+         la: @pega_pedaco(ir,9,6)
+         carry: @pega_pedaco(ir,0,0)
+         ir: ir
+       }
 
   loadCharmap: (charmap)->
     maps = charmap.split("\n")
