@@ -41,19 +41,23 @@
     display: flex;
     overflow: auto;
 
+
     @media(max-width: 1920px) {
       .canvas-container {
-        flex: none;
+
         margin: auto;
         width: 640px;
         height: 480px;
         background-color: black;
 
+
         canvas {
           position: absolute;
-          width: 640px;
-          flex: none;
-          margin: auto;
+
+          margin-left: auto;
+          margin-right: auto;
+          left: 0;
+          right: 0;
           object-fit: fill;
           zoom:2;
 
@@ -62,6 +66,19 @@
           image-rendering: -webkit-optimize-contrast;
           -ms-interpolation-mode: nearest-neighbor;
           image-rendering: pixelated;
+        }
+      }
+
+      .full{
+        position: fixed;
+        z-index: 100;
+        left: 0px;
+        top:0px;
+        width: 100vw;
+        height: 100vh;
+
+        canvas{
+          zoom: 3;
         }
       }
     }
@@ -87,6 +104,15 @@
           -ms-interpolation-mode: nearest-neighbor;
           image-rendering: pixelated;
         }
+      }
+
+      .full{
+        position: fixed;
+        z-index: 100;
+        left: 0px;
+        top:0px;
+        width: 100vw;
+        height: 100vh;
       }
     }
 

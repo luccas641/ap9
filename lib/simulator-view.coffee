@@ -42,7 +42,7 @@ class SimulatorView  extends View
         @label id: "labelIRQ", "IRQ"
         @subview "irq", new TextEditorView(mini: true, attributes: {id: "irq", outlet: "irq", type: "string", class: "inline-block reg big"})
       @div class: "simulator-container", =>
-        @div class: "canvas-container", =>
+        @div class: "canvas-container", outlet: "container", =>
           @canvas class: "canvas", focusable="True", outlet: "canvas"
           @canvas class: "canvas", focusable="True", outlet: "canvasOam"
 
@@ -83,6 +83,7 @@ class SimulatorView  extends View
       'simulator-view:toggle': => @toggle()
       'simulator-view:reset': => @reset()
       'simulator-view:next': => @next()
+      'simulator-view:fullscreen': => @toggleFullScreen()
 
     @ctx=@canvas[0].getContext("2d")
     @ctxOam=@canvasOam[0].getContext("2d")
@@ -96,7 +97,16 @@ class SimulatorView  extends View
 
     @canvasData = @ctx.getImageData(0, 0, 320, 240)
     @canvasDataOam = @ctxOam.getImageData(0, 0, 320, 240)
-
+    @fullscreen = false;
+  toggleFullScreen: () ->
+    if @fullscreen
+      @fullscreen = false;
+      @container.removeClass "full"
+      @container[0].webkitCancelFullScreen()
+    else
+      @fullscreen = true;
+      @container.addClass "full"
+      @container[0].webkitRequestFullScreen()
   fixCanvasForPPI: (width, height) ->
 
       width = parseInt(width);

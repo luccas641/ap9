@@ -14,3 +14,4 @@
   'home': 'simulator-view:toggle'
   'f5': 'simulator-view:reset'
   'end': 'simulator-view:next'
+  'f11': 'simulator-view:fullscreen'
